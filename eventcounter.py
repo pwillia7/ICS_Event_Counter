@@ -11,6 +11,7 @@ def parse_ics(file_path):
     unique_attendees = set()
     bigcommerce_attendees_count = {}
     events_list = []
+    filter_words = ['demo', 'technical', 'roadmap', 'demonstration', 'deep dive', 'deepdive','q&a','questions','stencil','catalyst','api','use case','headless','composable','SOW']
 
     for component in cal.walk():
         if component.name == "VEVENT":
@@ -24,7 +25,7 @@ def parse_ics(file_path):
 
             # Check if event is after 2022/12/31 and contains one of the keywords
             if (dtstart > datetime(2022, 12, 31, tzinfo=pytz.UTC) and
-                re.search(r'demo|technical|roadmap|demonstration|deep dive|deepdive|q&a|questions|stencil|catalyst|API|use case|headless|composable|SOW', summary, re.IGNORECASE)):
+                re.search('|'.join(filter_words), summary, re.IGNORECASE)):
                 
                 # Temporary sets for attendees
                 event_attendees = set()
@@ -44,24 +45,40 @@ def parse_ics(file_path):
                     unique_attendees.update(event_attendees)
                     events_list.append(f"{summary} on {dtstart.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # Sort bigcommerce attendees by count in descending order
-    sorted_bigcommerce_attendees = sorted(bigcommerce_attendees_count.items(), key=lambda x: x[1], reverse=True)
+    # Generate an HTML page with flexbox layout for columns
+    with open('report.html', 'w') as file:
+        file.write("<html><head><title>Event Report</title>")
+        file.write("<style>")
+        file.write("body { font-family: Arial, sans-serif; }")
+        file.write(".flex-container { display: flex; }")
+        file.write(".flex-column { flex: 1; padding: 10px; }")
+        file.write("h2, h3 { color: #333; }")
+        file.write("ul { list-style-type: none; padding: 0; }")
+        file.write("li { padding: 5px 0; }")
+        file.write("</style>")
+        file.write("</head><body>")
+        file.write(f"<h1>Event Report</h1>")
+        file.write(f"<h2>Total Events Found: {events_count}</h2>")
+        file.write(f"<h3>Filter Words Used: {', '.join(filter_words)}</h3>")
 
-    # Write the events and sorted bigcommerce attendees count to files
-    with open('events_list.txt', 'w') as file:
+        file.write("<div class='flex-container'>")
+        file.write("<div class='flex-column'><h2>Events List</h2><ul>")
         for event in events_list:
-            file.write(f"{event}\n")
+            file.write(f"<li>{event}</li>")
+        file.write("</ul></div>")
 
-    with open('bigcommerce_attendees_count.txt', 'w') as file:
+        file.write("<div class='flex-column'><h2>@bigcommerce.com Attendee Counts</h2><ul>")
+        sorted_bigcommerce_attendees = sorted(bigcommerce_attendees_count.items(), key=lambda x: x[1], reverse=True)
         for attendee, count in sorted_bigcommerce_attendees:
-            file.write(f"{attendee}: {count} events\n")
+            file.write(f"<li>{attendee}: {count} events</li>")
+        file.write("</ul></div>")
+        file.write("</div>")
 
-    # Return the counts
+        file.write("</body></html>")
+
     return events_count, len(unique_attendees), len(sorted_bigcommerce_attendees)
 
 # Example usage
 file_path = 'events.ics'  # Replace with your ICS file path
 events_count, unique_attendees_count, bigcommerce_attendees_unique_count = parse_ics(file_path)
-print(f"Total events found: {events_count}")
-print(f"Total unique non-bigcommerce attendees: {unique_attendees_count}")
-print(f"Total unique bigcommerce attendees: {bigcommerce_attendees_unique_count}")
+print(f"Report generated: report.html")
