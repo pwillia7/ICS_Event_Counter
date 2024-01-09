@@ -71,18 +71,18 @@ def parse_ics(file_path):
         file.write("<div class='container'>")
         
         file.write(f"<h1>Event Report</h1>")
-        file.write(f"<p>Total Events Found: {events_count}</p>")
+        file.write(f"<p>Total External Partner Events Found: {events_count}</p>")
         file.write(f"<p>Filter Words Used: {', '.join(filter_words)}</p>")
-        file.write(f"<p>Total Unique Non-@bigcommerce.com Attendees: {len(unique_non_bigcommerce_emails)}</p>")
+        file.write(f"<p>Unique Non-BC Attendees Across all Events: {len(unique_non_bigcommerce_emails)}</p>")
         
         file.write("<div class='row'>")
-        file.write("<div class='col-md-6'><h4>@bigcommerce.com Attendee Counts</h4><ul class='list-group mb-3'>")
+        file.write("<div class='col-md-6'><h4>BigCommmerce Attendees:</h4><ul class='list-group mb-3'>")
         
         sorted_bigcommerce_attendees = sorted(bigcommerce_attendees_count.items(), key=lambda x: x[1], reverse=True)
         for attendee, count in sorted_bigcommerce_attendees:
             file.write(f"<li class='list-group-item'>{attendee}: {count} events</li>")
         file.write("</ul></div>")
-        file.write("<div class='col-md-6'><h4>Non-@bigcommerce.com Domain Info</h4><ul class='list-group mb-3'>")
+        file.write("<div class='col-md-6'><h4>Partner Attendees:</h4><ul class='list-group mb-3'>")
         
         sorted_non_bigcommerce_domains = sorted(non_bigcommerce_domains_info.items(), key=lambda x: x[1]['event_count'], reverse=True)
         for domain, info in sorted_non_bigcommerce_domains:
