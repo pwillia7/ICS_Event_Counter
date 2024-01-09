@@ -8,15 +8,15 @@ def parse_ics(file_path):
         cal = Calendar.from_ical(f.read())
 
     events_count = 0
-    unique_attendees = set()
     bigcommerce_attendees_count = {}
     events_list = []
-    filter_words = ['demo', 'technical', 'roadmap', 'demonstration', 'deep dive', 'deepdive','q&a','questions','stencil','catalyst','api','use case','headless','composable','SOW']
+    filter_words = ['demo', 'technical', 'roadmap', 'demonstration', 'deep dive', 'deepdive', 'q&a', 'questions', 'stencil', 'catalyst', 'api', 'use case', 'headless', 'composable', 'SOW','sync','onsite','on-site','tech','product','overview','BC']
 
     for component in cal.walk():
         if component.name == "VEVENT":
             summary = str(component.get('summary'))
             dtstart = component.get('dtstart').dt
+            organizer = str(component.get('organizer'))
             attendees = component.get('attendee')
 
             # Ensure dtstart is a datetime object
@@ -25,24 +25,25 @@ def parse_ics(file_path):
 
             # Check if event is after 2022/12/31 and contains one of the keywords
             if (dtstart > datetime(2022, 12, 31, tzinfo=pytz.UTC) and
-                re.search('|'.join(filter_words), summary, re.IGNORECASE)):
+                re.search('|'.join(map(re.escape, filter_words)), summary, re.IGNORECASE)):
                 
-                # Temporary sets for attendees
-                event_attendees = set()
+                event_bigcommerce_emails = set()
+                non_bigcommerce_present = 'bigcommerce.com' not in organizer
 
-                # Process attendees and count bigcommerce attendees
+                # Check organizer and attendees
                 if attendees:
                     for attendee in attendees:
                         attendee_email = str(attendee)
-                        if 'bigcommerce.com' not in attendee_email:
-                            event_attendees.add(attendee_email)
+                        if 'bigcommerce.com' in attendee_email:
+                            event_bigcommerce_emails.add(attendee_email)
                         else:
-                            bigcommerce_attendees_count[attendee_email] = bigcommerce_attendees_count.get(attendee_email, 0) + 1
+                            non_bigcommerce_present = True
 
-                # If there are relevant attendees, count the event and update sets
-                if event_attendees:
+                # Count the event if a non-bigcommerce email is present
+                if non_bigcommerce_present and event_bigcommerce_emails:
                     events_count += 1
-                    unique_attendees.update(event_attendees)
+                    for email in event_bigcommerce_emails:
+                        bigcommerce_attendees_count[email] = bigcommerce_attendees_count.get(email, 0) + 1
                     events_list.append(f"{summary} on {dtstart.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Generate an HTML page with flexbox layout for columns
@@ -76,9 +77,7 @@ def parse_ics(file_path):
 
         file.write("</body></html>")
 
-    return events_count, len(unique_attendees), len(sorted_bigcommerce_attendees)
-
-# Example usage
+    return events_count, len(bigcommerce_attendees_count)
 file_path = 'events.ics'  # Replace with your ICS file path
-events_count, unique_attendees_count, bigcommerce_attendees_unique_count = parse_ics(file_path)
+events_count, bigcommerce_attendees_unique_count = parse_ics(file_path)
 print(f"Report generated: report.html")
