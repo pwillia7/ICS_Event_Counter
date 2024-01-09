@@ -59,47 +59,52 @@ def parse_ics(file_path):
                             domain_info['unique_emails'].add(email)
                             domain_info['event_count'] += 1
 
-    # Generate an HTML page with flexbox layout for columns
     with open('report.html', 'w') as file:
         file.write("<html><head><title>Event Report</title>")
+        file.write("<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css'>")
         file.write("<style>")
-        file.write("body { font-family: Arial, sans-serif; }")
-        file.write(".flex-container { display: flex; }")
-        file.write(".flex-column { flex: 1; padding: 10px; }")
-        file.write("h2, h3 { color: #333; }")
-        file.write("ul { list-style-type: none; padding: 0; }")
-        file.write("li { padding: 5px 0; }")
+        file.write(".list-group-item { background-color: #f8f9fa; border: 1px solid #e9ecef; }")
+        file.write(".container { padding-top: 20px; }")
+        file.write(".column { flex: 50%; }")
         file.write("</style>")
         file.write("</head><body>")
+        file.write("<div class='container'>")
+        
         file.write(f"<h1>Event Report</h1>")
-        file.write(f"<h2>Total Events Found: {events_count}</h2>")
-        file.write(f"<h3>Filter Words Used: {', '.join(filter_words)}</h3>")
-        file.write(f"<h3>Total Unique Non-@bigcommerce.com Attendees: {len(unique_non_bigcommerce_emails)}</h3>")
-        file.write("<div class='flex-container'>")
-        file.write("<div class='flex-column'><h2>@bigcommerce.com Attendee Counts</h2><ul>")
+        file.write(f"<p>Total Events Found: {events_count}</p>")
+        file.write(f"<p>Filter Words Used: {', '.join(filter_words)}</p>")
+        file.write(f"<p>Total Unique Non-@bigcommerce.com Attendees: {len(unique_non_bigcommerce_emails)}</p>")
+        
+        file.write("<div class='row'>")
+        file.write("<div class='col-md-6'><h4>@bigcommerce.com Attendee Counts</h4><ul class='list-group mb-3'>")
+        
         sorted_bigcommerce_attendees = sorted(bigcommerce_attendees_count.items(), key=lambda x: x[1], reverse=True)
         for attendee, count in sorted_bigcommerce_attendees:
-            file.write(f"<li>{attendee}: {count} events</li>")
+            file.write(f"<li class='list-group-item'>{attendee}: {count} events</li>")
         file.write("</ul></div>")
-
-        file.write("<div class='flex-column'><h2>Non-@bigcommerce.com Domain Info</h2><ul>")
+        file.write("<div class='col-md-6'><h4>Non-@bigcommerce.com Domain Info</h4><ul class='list-group mb-3'>")
+        
         sorted_non_bigcommerce_domains = sorted(non_bigcommerce_domains_info.items(), key=lambda x: x[1]['event_count'], reverse=True)
         for domain, info in sorted_non_bigcommerce_domains:
             unique_attendee_count = len(info['unique_emails'])
             event_count = info['event_count']
-            file.write(f"<li>@{domain}: {unique_attendee_count} attendees across {event_count} events</li>")
+            file.write(f"<li class='list-group-item'>@{domain}: {unique_attendee_count} attendees across {event_count} events</li>")
         file.write("</ul></div>")
-        
-        file.write("</div>")
 
-        file.write("<h2>Events List</h2><ul>")
+        file.write("</div>")  # Closing row div
+
+        file.write("<div class='row'>")
+        file.write("<div class='col-12'><h4>Events List</h4><ul class='list-group list-group-flush'>")
+        
         for event in events_list:
             file.write(f"<li>{event}</li>")
-        file.write("</ul>")
+        file.write("</ul></div>")
 
+        file.write("</div>")  # Closing container div
         file.write("</body></html>")
 
     return events_count, len(bigcommerce_attendees_count), len(unique_non_bigcommerce_emails)
+
 
 
 # Example usage
