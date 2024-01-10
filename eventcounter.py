@@ -1,113 +1,95 @@
 from icalendar import Calendar
+from datetime import datetime
 import pytz
-from datetime import datetime, date
-import re
+from jinja2 import Environment, FileSystemLoader
 
-def parse_ics(file_path):
-    with open(file_path, 'rb') as f:
-        cal = Calendar.from_ical(f.read())
+def is_bigcommerce(email):
+    return email.endswith("@bigcommerce.com")
 
-    events_count = 0
-    bigcommerce_attendees_count = {}
-    non_bigcommerce_domains_info = {}
-    unique_non_bigcommerce_emails = set()
-    events_list = []
-    filter_words = ['demo', 'technical', 'roadmap', 'demonstration', 'deep dive', 'deepdive', 'q&a', 'questions', 'stencil', 'catalyst', 'api', 'use case', 'headless', 'composable', 'SOW', 'sync', 'onsite', 'on-site', 'tech', 'product', 'overview', 'BC']
-    email_pattern = re.compile(r"mailto:(\S+@\S+\.\S+)")
+def contains_keywords(subject, keywords):
+    return any(word.lower() in subject.lower() for word in keywords)
 
-    for component in cal.walk():
-        if component.name == "VEVENT":
-            summary = str(component.get('summary'))
-            dtstart = component.get('dtstart').dt
-            organizer = component.get('organizer')
-            attendees = component.get('attendee')
+with open('events.ics', 'rb') as file:
+    calendar = Calendar.from_ical(file.read())
 
-            # Ensure dtstart is a datetime object
-            if isinstance(dtstart, date) and not isinstance(dtstart, datetime):
-                dtstart = datetime(dtstart.year, dtstart.month, dtstart.day, tzinfo=pytz.UTC)
+keywords = [
+    "demo", "technical", "roadmap", "demonstration", "deep dive", "deepdive", "q&a", 
+    "questions", "stencil", "catalyst", "api", "use case", "headless", "composable", 
+    "SOW", "sync", "onsite", "on-site", "tech", "product", "overview", "BC"
+]
 
-            # Check if event is after 2022/12/31 and contains one of the keywords
-            if (dtstart > datetime(2022, 12, 31, tzinfo=pytz.UTC) and
-                re.search('|'.join(map(re.escape, filter_words)), summary, re.IGNORECASE)):
-                
-                event_emails = set()
+bigcommerce_attendees = {}
+partner_domains = {}
+partner_attendees = {}
+filtered_events = []
+total_external_events = 0
+unique_non_bigcommerce = set()
+excluded_domains = {}
 
-                # Add organizer email
-                if organizer:
-                    organizer_email_match = email_pattern.search(str(organizer))
-                    if organizer_email_match:
-                        event_emails.add(organizer_email_match.group(1))
-
-                # Process attendees
-                if attendees:
-                    for attendee in attendees:
-                        attendee_email_match = email_pattern.search(str(attendee))
-                        if attendee_email_match:
-                            event_emails.add(attendee_email_match.group(1))
-
-                # Update counts
-                if any('bigcommerce.com' not in email for email in event_emails):
-                    events_count += 1
-                    events_list.append(f"{summary} on {dtstart.strftime('%Y-%m-%d %H:%M:%S')}")
-                    for email in event_emails:
-                        domain = email.split('@')[-1]
-                        if 'bigcommerce.com' in email:
-                            bigcommerce_attendees_count[email] = bigcommerce_attendees_count.get(email, 0) + 1
-                        else:
-                            unique_non_bigcommerce_emails.add(email)
-                            domain_info = non_bigcommerce_domains_info.setdefault(domain, {'unique_emails': set(), 'event_count': 0})
-                            domain_info['unique_emails'].add(email)
-                            domain_info['event_count'] += 1
-
-    with open('report.html', 'w') as file:
-        file.write("<html><head><title>Event Report</title>")
-        file.write("<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css'>")
-        file.write("<style>")
-        file.write(".list-group-item { background-color: #f8f9fa; border: 1px solid #e9ecef; }")
-        file.write(".container { padding-top: 20px; }")
-        file.write(".column { flex: 50%; }")
-        file.write("</style>")
-        file.write("</head><body>")
-        file.write("<div class='container'>")
+for component in calendar.walk():
+    if component.name == "VEVENT":
+        dtstart = component.get('dtstart').dt
+        subject = str(component.get('summary'))
+        organizer = str(component.get('organizer')).replace('mailto:', '').lower() if component.get('organizer') else ''
+        attendees = component.get('attendee', [])
+        if not isinstance(attendees, list):
+            attendees = [attendees]
         
-        file.write(f"<h1>Event Report</h1>")
-        file.write(f"<p>Total External Partner Events Found: {events_count}</p>")
-        file.write(f"<p>Filter Words Used: {', '.join(filter_words)}</p>")
-        file.write(f"<p>Unique Non-BC Attendees Across all Events: {len(unique_non_bigcommerce_emails)}</p>")
+        attendees = [str(att).replace('mailto:', '').lower() for att in attendees if att]
+
+        if isinstance(dtstart, datetime):
+            dtstart = dtstart.astimezone(pytz.UTC)
         
-        file.write("<div class='row'>")
-        file.write("<div class='col-md-6'><h4>BigCommmerce Attendees:</h4><ul class='list-group mb-3'>")
-        
-        sorted_bigcommerce_attendees = sorted(bigcommerce_attendees_count.items(), key=lambda x: x[1], reverse=True)
-        for attendee, count in sorted_bigcommerce_attendees:
-            file.write(f"<li class='list-group-item'>{attendee}: {count} events</li>")
-        file.write("</ul></div>")
-        file.write("<div class='col-md-6'><h4>Partner Attendees:</h4><ul class='list-group mb-3'>")
-        
-        sorted_non_bigcommerce_domains = sorted(non_bigcommerce_domains_info.items(), key=lambda x: x[1]['event_count'], reverse=True)
-        for domain, info in sorted_non_bigcommerce_domains:
-            unique_attendee_count = len(info['unique_emails'])
-            event_count = info['event_count']
-            file.write(f"<li class='list-group-item'>@{domain}: {unique_attendee_count} attendees across {event_count} events</li>")
-        file.write("</ul></div>")
+        if dtstart.year == 2023 and contains_keywords(subject, keywords):
+            all_emails = [organizer] + attendees
+            event_filtered_emails = set(email for email in all_emails if email and not is_bigcommerce(email) and email.split('@')[-1] not in excluded_domains)
+            unique_emails_for_event = set()
+            partner_domains_for_event = set()
 
-        file.write("</div>")  # Closing row div
-
-        file.write("<div class='row'>")
-        file.write("<div class='col-12'><h4>Events List</h4><ul class='list-group list-group-flush'>")
-        
-        for event in events_list:
-            file.write(f"<li>{event}</li>")
-        file.write("</ul></div>")
-
-        file.write("</div>")  # Closing container div
-        file.write("</body></html>")
-
-    return events_count, len(bigcommerce_attendees_count), len(unique_non_bigcommerce_emails)
+            for email in all_emails:
+                domain = email.split('@')[-1]
+                if not is_bigcommerce(email) and domain not in excluded_domains:
+                    unique_emails_for_event.add(email)
+                    partner_domains_for_event.add(domain)
 
 
+            if event_filtered_emails:
+                filtered_events.append({
+                    'subject': subject,
+                    'dtstart': dtstart.strftime("%Y-%m-%d %H:%M:%S"),
+                    'partner_count': len(unique_emails_for_event),
+                    'partner_domains': ', '.join(partner_domains_for_event)
+                })
 
-# Example usage
-file_path = 'events.ics'  # Replace with your ICS file path
-events_count, bigcommerce_attendees_unique_count, unique_non_bigcommerce_emails_count = parse_ics(file_path)
-print(f"Report generated: report.html")
+
+                for email in event_filtered_emails:
+                    unique_non_bigcommerce.add(email)
+                    domain = email.split('@')[-1]
+                    if domain not in partner_domains:
+                        partner_domains[domain] = {'unique_emails': set(), 'event_count': 0}
+                    partner_domains[domain]['unique_emails'].add(email)
+                partner_domains[domain]['event_count'] += 1
+
+                for email in all_emails:
+                    if is_bigcommerce(email):
+                        bigcommerce_attendees[email] = bigcommerce_attendees.get(email, 0) + 1
+            
+
+sorted_bigcommerce_attendees = sorted([(email.split('@')[0].replace('.', ' ').title(), count) for email, count in bigcommerce_attendees.items() if '@bigcommerce.com' in email], key=lambda x: x[1], reverse=True)[1:]
+sorted_partner_attendees = sorted([(domain, len(data['unique_emails']), data['event_count']) for domain, data in partner_domains.items()], key=lambda x: x[2], reverse=True)
+
+env = Environment(loader=FileSystemLoader('.'))
+template = env.get_template('template.html')
+
+html_output = template.render(
+    title="Event Report",
+    total_external_events=len(filtered_events),
+    keywords=keywords,
+    unique_non_bigcommerce=len(unique_non_bigcommerce),
+    bigcommerce_attendees=sorted_bigcommerce_attendees,
+    partner_attendees=sorted_partner_attendees,
+    filtered_events=filtered_events
+)
+
+with open('report.html', 'w') as file:
+    file.write(html_output)

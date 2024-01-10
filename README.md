@@ -1,47 +1,49 @@
 # Event Counter for ICS Files
 
 ## Overview
-This Python script is designed to parse ICS (iCalendar) files and count events based on specific criteria. It filters events based on their summary content and attendee email addresses. By default, it looks for events occurring after a specified date (currently hardcoded but can be changed) and checks for certain keywords in the event summary. Additionally, it filters out events where all attendees are from a specific organizational email domain.
+This tool parses calendar event data from `.ics` files and generates an HTML report categorizing attendees into internal and external participants based on their email domains. The report includes a count of events matching specified keywords, a list of these keywords, attendee statistics, and event details.
 
-## Prerequisites
-- Python 3.x
-- `icalendar` library
-- `pytz` library
+![](screen.png)
 
-## Installation
-Clone this repository to your local machine using the following command:
+## Features
+- **Keyword Filtering**: Events are filtered based on a list of pre-defined keywords.
+- **Attendee Categorization**: Attendees are categorized as 'Internal' or 'External' based on their email domains.
+- **Event Counting**: The tool counts all events that match the keyword criteria within a specified year.
+- **Detailed Reporting**: Generates a detailed report including the total number of events found, unique external attendee count, and a breakdown of attendee participation.
 
-```bash
-git clone https://github.com/pwillia7/ICS_Event_Counter
-```
-
-Navigate to the cloned directory. To install the required Python libraries, run:
-
-```bash
-pip install icalendar pytz
-
-```
 ## Usage
-Place the ICS file you want to parse in the same directory as the script, or specify its path when prompted. The script can be executed with:
+1. Define the keywords for event filtering in the `keywords` list.
+2. Specify the email domain considered as 'internal'.
+3. Run the script to parse the `.ics` file and generate the report.
 
-```bash
-python event_counter.py
-
-```
-Upon execution, the script will parse the provided ICS file according to the predefined criteria. The default criteria include a date filter (events occurring after a specific date) and keyword filtering in the event summary. These parameters are hardcoded but can be easily modified in the script.
-
-The script outputs:
-
-* The total count of events matching the criteria.
-* A text file (events_list.txt) containing the list of event names and their dates.
+## Report Sections
+- **Event Summary**: Displays total events found, keywords used for filtering, and unique external attendee count.
+- **Attendee Details**: Lists internal and external attendees, along with their participation count.
+- **Filtered Events**: A detailed table of all events matching the filter, sortable by various criteria.
 
 ## Customization
+Users can customize the following:
+- The year for which the events are analyzed.
+- The list of keywords used to filter events.
+- The domain considered 'internal' to differentiate from external participants.
 
-You can customize the script to suit your specific needs:
+## Requirements
+- Python 3
+- `icalendar` Python package
+- `jinja2` Python package
+- `pytz` Python package for timezone conversions
 
-* Change the date after which events are considered by modifying the datetime object in the script.
-* Adjust the keywords for event summary filtering by editing the regular expression used in the script.
-* Modify the domain name in the attendee email filter to match your organization's domain.
+## Installation
+Install the required packages using `pip`:
 
-## Contributing 
-Feel free to fork this repository and submit pull requests with any enhancements. For major changes, please open an issue first to discuss what you would like to change.
+```bash
+pip install icalendar jinja2 pytz
+
+```
+
+
+## Contributing
+Contributions to enhance the functionality or usability of this tool are welcome. Please ensure you follow the code of conduct and submit pull requests for any proposed changes.
+
+## License
+This project is licensed under the [MIT License](LICENSE.md).
