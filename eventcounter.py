@@ -24,7 +24,9 @@ partner_attendees = {}
 filtered_events = []
 total_external_events = 0
 unique_non_bigcommerce = set()
-excluded_domains = {}
+bigcommerce_event_mapping = {}
+partner_event_mapping = {}
+excluded_domains = {"resource.calendar.google.com", "google.com", "gmail.com"}
 
 for component in calendar.walk():
     if component.name == "VEVENT":
@@ -36,12 +38,13 @@ for component in calendar.walk():
             attendees = [attendees]
         
         attendees = [str(att).replace('mailto:', '').lower() for att in attendees if att]
-
         if isinstance(dtstart, datetime):
             dtstart = dtstart.astimezone(pytz.UTC)
         
         if dtstart.year == 2023 and contains_keywords(subject, keywords):
             all_emails = [organizer] + attendees
+            bigcommerce_names = [email.split('@')[0].replace('.', ' ').title() for email in all_emails if is_bigcommerce(email)]
+
             event_filtered_emails = set(email for email in all_emails if email and not is_bigcommerce(email) and email.split('@')[-1] not in excluded_domains)
             unique_emails_for_event = set()
             partner_domains_for_event = set()
@@ -52,15 +55,16 @@ for component in calendar.walk():
                     unique_emails_for_event.add(email)
                     partner_domains_for_event.add(domain)
 
-
             if event_filtered_emails:
-                filtered_events.append({
+                event_dict = {
                     'subject': subject,
                     'dtstart': dtstart.strftime("%Y-%m-%d %H:%M:%S"),
                     'partner_count': len(unique_emails_for_event),
-                    'partner_domains': ', '.join(partner_domains_for_event)
-                })
-
+                    'partner_domains': list(partner_domains_for_event),
+                    'attendees': all_emails,
+                    'bigcommerce_names': bigcommerce_names  # Add BigCommerce names
+                }
+                filtered_events.append(event_dict)
 
                 for email in event_filtered_emails:
                     unique_non_bigcommerce.add(email)
@@ -68,11 +72,13 @@ for component in calendar.walk():
                     if domain not in partner_domains:
                         partner_domains[domain] = {'unique_emails': set(), 'event_count': 0}
                     partner_domains[domain]['unique_emails'].add(email)
+                    partner_event_mapping.setdefault(domain, []).append(event_dict)
                 partner_domains[domain]['event_count'] += 1
 
                 for email in all_emails:
                     if is_bigcommerce(email):
                         bigcommerce_attendees[email] = bigcommerce_attendees.get(email, 0) + 1
+                        bigcommerce_event_mapping.setdefault(email, []).append(event_dict)
             
 
 sorted_bigcommerce_attendees = sorted([(email.split('@')[0].replace('.', ' ').title(), count) for email, count in bigcommerce_attendees.items() if '@bigcommerce.com' in email], key=lambda x: x[1], reverse=True)[1:]
@@ -88,7 +94,9 @@ html_output = template.render(
     unique_non_bigcommerce=len(unique_non_bigcommerce),
     bigcommerce_attendees=sorted_bigcommerce_attendees,
     partner_attendees=sorted_partner_attendees,
-    filtered_events=filtered_events
+    filtered_events=filtered_events,
+    bigcommerce_event_mapping=bigcommerce_event_mapping,
+    partner_event_mapping=partner_event_mapping
 )
 
 with open('report.html', 'w') as file:

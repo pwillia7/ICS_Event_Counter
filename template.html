@@ -42,7 +42,6 @@
         <div class="row">
             <div class="col-md-6">
                 <h2>CAMs</h2>
-                
                 <div id="bigCommerceTable">
                     <table class="table">
                         <thead>
@@ -53,19 +52,17 @@
                         </thead>
                         <tbody>
                             {% for name, count in bigcommerce_attendees %}
-                            <tr>
+                            <tr class="camRow" data-cam="{{ name }}">
                                 <td>{{ name }}</td>
                                 <td class="text-center">{{ count }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
-                        
                     </table>
                 </div>    
             </div>
             <div class="col-md-6">
                 <h2>Partners</h2>
-
                 <div id="partnerTable">
                     <table class="table">
                         <thead>
@@ -77,7 +74,7 @@
                         </thead>
                         <tbody>
                             {% for domain, unique_individuals, event_count in partner_attendees %}
-                            <tr>
+                            <tr class="partnerRow" data-partner="{{ domain }}">
                                 <td>{{ domain }}</td>
                                 <td class="text-center">{{ unique_individuals }}</td>
                                 <td class="text-center">{{ event_count }}</td>
@@ -87,44 +84,80 @@
                     </table>
                 </div>
             </div>
-            
-            <h2>All Filtered Events</h2>
-            <div id="filteredEventsTable">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Subject</th>
-                            <th>Date</th>
-                            <th>Partner Domains</th> <!-- New column for partner domains -->
-                            <th class="text-center">Partner Attendees/Organizers</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for event in filtered_events %}
-                        <tr>
-                            <td>{{ event.subject }}</td>
-                            <td>{{ event.dtstart }}</td>
-                            <td>{{ event.partner_domains }}</td> <!-- Display partner domains -->
-
-                            <td class="text-center">{{ event.partner_count }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <script>
-                $(document).ready( function () {
-                    $('#bigCommerceTable .table').DataTable({
-                        "order": [[ 1, "desc" ]] 
-                    });
-                    $('#partnerTable .table').DataTable({
-                        "order": [[ 2, "desc" ]] 
-                    });
-                    $('#filteredEventsTable .table').DataTable({
-                        "order": [[ 3, "desc" ]] 
-                    });
-                });
-            </script>
         </div>
+            
+        <h2>All Filtered Events</h2>
+        <div id="filteredEventsTable">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Date</th>
+                        <th>Partner Domains</th>
+                        <th class="text-center">Partner Attendees/Organizers</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Rows will be dynamically inserted here -->
+                </tbody>
+            </table>
+        </div>
+        <script>
+            $(document).ready( function () {
+                var camEvents = {{ bigcommerce_event_mapping | tojson }};
+                var partnerEvents = {{ partner_event_mapping | tojson }};
+                var allEvents = {{ filtered_events | tojson }};
+        
+                // Initialize DataTables for CAMs and Partners tables with specific sorting
+                var camTable = $('#bigCommerceTable .table').DataTable({
+                    "order": [[ 1, "desc" ]]
+                });
+                var partnerTable = $('#partnerTable .table').DataTable({
+                    "order": [[ 2, "desc" ]]
+                });
+        
+                // Initialize DataTables for Events table with specific sorting
+                var eventsTable = $('#filteredEventsTable .table').DataTable({
+                    "order": [[ 3, "desc" ]],
+                    data: allEvents,
+                    columns: [
+                        { data: 'subject' },
+                        { data: 'dtstart' },
+                        { data: 'partner_domains', render: function(data) { return data.join(', '); } },
+                        { data: 'partner_count' }
+                    ]
+                });
+        
+                // Custom search function for filtering events
+                $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+                    var selectedCam = $('#bigCommerceTable tbody tr.selected').data('cam');
+                    var selectedPartner = $('#partnerTable tbody tr.selected').data('partner');
+        
+                    var event = allEvents[dataIndex];
+        
+                    if (selectedCam && !event.bigcommerce_names.includes(selectedCam)) {
+                        return false;
+                    }
+                    if (selectedPartner && !event.partner_domains.includes(selectedPartner)) {
+                        return false;
+                    }
+                    return true;
+                });
+        
+                
+                // Event handler for CAM table row click
+                $('#bigCommerceTable tbody').on('click', 'tr', function () {
+                    $(this).toggleClass('selected').siblings().removeClass('selected');
+                    eventsTable.draw();
+                });
+        
+                // Event handler for Partner table row click
+                $('#partnerTable tbody').on('click', 'tr', function () {
+                    $(this).toggleClass('selected').siblings().removeClass('selected');
+                    eventsTable.draw();
+                });
+            });
+        </script>
+                        </div>
     </body>
 </html>
