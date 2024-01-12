@@ -12,20 +12,64 @@
 
 
     <style>
-        body { padding-top: 20px; }
-        .container { max-width: 1200px; }
-        h1, h2 { color: #007bff; }
-        .table { margin-top: 20px; }
-        .table th { background-color: #f8f9fa; }
-        .table td { vertical-align: middle; }
-        .list-group-item { display: flex; justify-content: space-between; align-items: center; }
-        .event-list { list-style-type: none; padding: 0; }
-        .event-list li { margin-bottom: 10px; }
-        .event-item { padding: 10px; margin-bottom: 10px; }
-        .event-subject { font-weight: bold; }
-        .event-date { font-style: italic; }
-    </style>
+        body {
+            padding-top: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            background: #f7f7f7;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+            #bigCommerceTable tbody tr.selected td,
+            #partnerTable tbody tr.selected td {
+                background-color: #accef7 !important; /* Light blue background for selected cells */
+            }
+        
+            #bigCommerceTable tbody tr:hover td,
+            #partnerTable tbody tr:hover td {
+                background-color: #f1f1f1 !important; /* Light grey background for hover cells */
+            }
+        
     
+        h1, h2, h3 {
+            color: #007bff;
+        }
+        .table {
+            margin-top: 20px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .table th, .table td {
+            background-color: #fff;
+            border-top: none;
+        }
+        .table thead th {
+            background-color: #f8f9fa;
+            border-bottom: 2px solid #eaeaea;
+        }
+        .table tbody tr:hover {
+            background-color: #f1f1f1;
+            cursor: pointer;
+        }
+        .card {
+            margin-bottom: 30px;
+        }
+        .text-overflow {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
+            display: inline-block;
+        }
+        .expandable-row {
+            display: none;
+        }
+    </style>
+        
         
 </head>
 <body>
@@ -34,8 +78,8 @@
             <div class="card-header">2023 Event Summary</div>
             <div class="card-body">
                 <h5 class="card-title">Total Partner Events Found: {{ total_external_events }}</h5>
+                <h5 class="card-title">Partners Interacted with: {{ unique_non_bigcommerce }}</h5>
                 <p class="card-text">Filter Keywords: {{ keywords | join(', ') }}</p>
-                <p class="card-text">Partners Interacted with: {{ unique_non_bigcommerce }}</p>
             </div>
         </div>
         
@@ -91,10 +135,10 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Subject</th>
                         <th>Date</th>
+                        <th>Subject</th>
                         <th>Partner Domains</th>
-                        <th class="text-center">Partner Attendees/Organizers</th>
+                        <th class="text-center"># External Attendees</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -118,16 +162,35 @@
         
                 // Initialize DataTables for Events table with specific sorting
                 var eventsTable = $('#filteredEventsTable .table').DataTable({
-                    "order": [[ 3, "desc" ]],
+                    "order": [[ 3, "desc" ]], // Date is now the first column, so its index is 0
                     data: allEvents,
                     columns: [
-                        { data: 'subject' },
                         { data: 'dtstart' },
-                        { data: 'partner_domains', render: function(data) { return data.join(', '); } },
+                        { data: 'subject' },
+                        { data: 'partner_domains', render: function(data, type, row, meta) {
+                                if (type === 'display') {
+                                    var domains = data.join(', ');
+                                    if (domains.length > 30) {
+                                        return '<span class="text-overflow" title="' + domains + '">' + domains.substr(0, 30) + '...</span>';
+                                    } else {
+                                        return domains;
+                                    }
+                                }
+                                return data;
+                            }
+                        },
                         { data: 'partner_count' }
+                    ],
+                    "columnDefs": [
+                        { "width": "20%", "targets": 0 }, // Date
+                        { "width": "30%", "targets": 1 }, // Subject
+                        { "width": "30%", "targets": 2 }, // Partner Domains
+                        { "width": "20%", "targets": 3 }  // Partner Attendees/Organizers
                     ]
                 });
-        
+
+                
+                
                 // Custom search function for filtering events
                 $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
                     var selectedCam = $('#bigCommerceTable tbody tr.selected').data('cam');
@@ -147,15 +210,26 @@
                 
                 // Event handler for CAM table row click
                 $('#bigCommerceTable tbody').on('click', 'tr', function () {
-                    $(this).toggleClass('selected').siblings().removeClass('selected');
+                    if ($(this).hasClass('selected')) {
+                        $(this).removeClass('selected');
+                    } else {
+                        camTable.$('tr.selected').removeClass('selected');
+                        $(this).addClass('selected');
+                    }
+                    eventsTable.draw();
+                });
+                
+                // Event handler for Partner table row click
+                $('#partnerTable tbody').on('click', 'tr', function () {
+                    if ($(this).hasClass('selected')) {
+                        $(this).removeClass('selected');
+                    } else {
+                        partnerTable.$('tr.selected').removeClass('selected');
+                        $(this).addClass('selected');
+                    }
                     eventsTable.draw();
                 });
         
-                // Event handler for Partner table row click
-                $('#partnerTable tbody').on('click', 'tr', function () {
-                    $(this).toggleClass('selected').siblings().removeClass('selected');
-                    eventsTable.draw();
-                });
             });
         </script>
                         </div>
